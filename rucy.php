@@ -3,7 +3,7 @@
  * Plugin Name: Rucy
  * Plugin URI: https://github.com/gips/rucy
  * Description: Reservation Update (Published) Content.
- * Version: 0.1.1
+ * Version: 0.1.2
  * Author: Nita
  * License: GPLv2 or later
  * Text Domain: rucy
@@ -13,7 +13,7 @@ define('RC_PLUGIN_URL',  plugin_dir_url(__FILE__));
 define('RC_SETTING_OPTION_KEY', 'rucy_post_type');
 define('RC_TXT_DOMAIN', 'rucy');
 define('RC_POSTTYPE_DEFAULT','post,page');
-define('RC_CRON_FOOK', 'rucy_update_reserved_content');
+define('RC_CRON_HOOK', 'rucy_update_reserved_content');
 load_plugin_textdomain( RC_TXT_DOMAIN, false, 'rucy/lang');
 
 add_action('admin_enqueue_scripts','rc_load_jscss');
@@ -141,38 +141,35 @@ function savePostmeta($post_id)
         }
         $rcKeys = getRcMetas();
         $acceptPostType = getRcSetting();
-        foreach ($acceptPostType as $postType)
+        if(in_array($_POST['post_type'], $acceptPostType))
         {
-            if($_POST['post_type'] == $postType)
+            $date = mktime($_POST['rc_hour'], $_POST['rc_minutes'], 00, $_POST['rc_month'], $_POST['rc_day'], $_POST['rc_year']);
+            if($date)
             {
-                $date = mktime($_POST['rc_hour'], $_POST['rc_minutes'], 00, $_POST['rc_month'], $_POST['rc_day'], $_POST['rc_year']);
-                if($date)
-                {
-                    $_POST[$rcKeys['date']] = date('Y-m-d H:i:s',$date);
-                } else {
-                    $_POST[$rcKeys['date']] = "";
-                }
-                if(!isset($_POST[$rcKeys['accept']])){
-                    $_POST[$rcKeys['accept']]  = "0";
-                } else if($_POST[$rcKeys['accept']] != "1"){
-                    $_POST[$rcKeys['accept']] = "0";
-                }
+                $_POST[$rcKeys['date']] = date('Y-m-d H:i:s',$date);
+            } else {
+                $_POST[$rcKeys['date']] = "";
             }
-        }
-        foreach ($rcKeys as $key => $val)
-        {
-            savePostMetaBase($post_id, $val);
+            if(!isset($_POST[$rcKeys['accept']])){
+                $_POST[$rcKeys['accept']]  = "0";
+            } else if($_POST[$rcKeys['accept']] != "1"){
+                $_POST[$rcKeys['accept']] = "0";
+            }
         }
         if($_POST[$rcKeys['accept']] == "1")
         {
+            foreach ($rcKeys as $key => $val)
+            {
+                savePostMetaBase($post_id, $val);
+            }
             $reservDate = strtotime(get_gmt_from_date($_POST[$rcKeys['date']]) . " GMT");
             if(in_array($_POST['post_type'], $acceptPostType) || $_POST['post_type'] != 'revision')
             {
-                wp_schedule_single_event($reservDate, RC_CRON_FOOK, array($post_id));
+                wp_schedule_single_event($reservDate, RC_CRON_HOOK, array($post_id));
             }
         } else if($_POST[$rcKeys['accept']] == "0") {
             // delete schedule
-            wp_clear_scheduled_hook(RC_CRON_FOOK, array($post_id));
+            wp_clear_scheduled_hook(RC_CRON_HOOK, array($post_id));
         }
     }
 }
@@ -214,12 +211,42 @@ function updateReservedContent($post_id)
         );
        wp_update_post($updates,true);
     }
-    wp_clear_scheduled_hook(RC_CRON_FOOK, array($post_id));
+    wp_clear_scheduled_hook(RC_CRON_HOOK, array($post_id));
     $dels = getRcMetas();
     foreach ($dels as $key => $del)
     {
         delete_post_meta($post_id, $del);
     }
+}
+
+// add update message
+add_filter('post_updated_messages','addRcMessage');
+function addRcMessage($messages)
+{
+    global  $post, $post_ID;
+    $arrPostTypes = getRcSetting(true);
+    $postType = get_post_type($post);
+    if(in_array($postType, $arrPostTypes))
+    {
+        $rcMetas = getRcMetas($post_ID);
+        if("1" == $rcMetas['accept'])
+        {
+            $addMessageDate = date('Y/m/d @ H:i',  strtotime($rcMetas['date']));
+            $str = __('registered reservation update content _RC_DATETIME_',RC_TXT_DOMAIN);
+            $addMessage = '<br>' . strtr($str, array('_RC_DATETIME_' => $addMessageDate));
+            // published
+            $messages[$postType][1] .= $addMessage;
+            $messages[$postType][4] .= $addMessage;
+            $messages[$postType][6] .= $addMessage;
+            // saved
+            $messages[$postType][7] .= $addMessage;
+            // submited
+            $messages[$postType][8] .= $addMessage;
+            // scheduled
+            $messages[$postType][9] .= $addMessage;
+        }
+    }
+    return $messages;
 }
 
 // add reservation info at postlist
@@ -258,9 +285,10 @@ function addRcSetting()
     $post = $_POST;
     $isCheckedPost = "";
     $isCheckedPage = "";
-    $arrCustomPostTypes = "";
     $customPostTypes = "";
     $errorClass = "form-invalid";
+    $basicPostTypes = array('page','post');
+    $invalidPostTypes = array('attachment','revision');
     $message = array();
     $error = 0;
     if(isset($post['page_options']))
@@ -284,12 +312,15 @@ function addRcSetting()
         }
         if(isset($post['rc_custom_post']) && $post['rc_custom_post'] != "") {
             $customCheck = explode(',', $post['rc_custom_post']);
-            foreach ($customCheck as $check){
-                if(preg_match('/^page$/', $check) || preg_match('/^post$/', $check))
+            foreach ($customCheck as $check)
+            {
+                if(in_array($check, $basicPostTypes))
                 {
                     $message['custom_post'] = __('Do not input "post" or "page". ', RC_TXT_DOMAIN);
                 } else if(!preg_match('/[a-zA-Z0-9_-]/', $check)) {
                     $message['custom_post'] = __("Please input alphabet or numeric. And do not input sequencial commas.", RC_TXT_DOMAIN);
+                } else if(in_array($check, $invalidPostTypes)){
+                    $message['custom_post'] = __('Do not input "attachment" or "revision". ',RC_TXT_DOMAIN);
                 }
             }
             $res .= "," . $post['rc_custom_post'];
@@ -307,7 +338,7 @@ function addRcSetting()
         $arrCustomPostTypes = array();
         foreach ($arrSetting as $v)
         {
-            if(!in_array($v, array('post','page')))
+            if(!in_array($v, $basicPostTypes))
             {
                 array_push($arrCustomPostTypes, $v);
             }
@@ -400,7 +431,7 @@ if(function_exists('register_uninstall_hook'))
 
 function goodbyeRucy()
 {
-    wp_clear_scheduled_hook(RC_CRON_FOOK);
+    wp_clear_scheduled_hook(RC_CRON_HOOK);
     delete_option(RC_SETTING_OPTION_KEY);
     $allposts = get_posts('numberposts=-1&post_status=');
     $meta_keys = getRcMetas();
