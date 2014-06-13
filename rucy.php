@@ -3,7 +3,7 @@
  * Plugin Name: Rucy
  * Plugin URI: https://github.com/gips/rucy
  * Description: Reservation Update (Published) Content.
- * Version: 0.1.2
+ * Version: 0.2.0
  * Author: Nita
  * License: GPLv2 or later
  * Text Domain: rucy
@@ -60,7 +60,7 @@ function add_rucy_metabox_out()
     $acceptPostType = getRcSetting();
     foreach ($acceptPostType as $postType)
     {
-        add_meta_box('rucy_metabox','Rucy','add_rucy_metabox_inside',$postType,'normal','high');
+        add_meta_box('rucy_metabox','Rucy - Reservation Update Content -','add_rucy_metabox_inside',$postType,'normal','high');
     }
     function add_rucy_metabox_inside()
     {
@@ -73,14 +73,15 @@ function add_rucy_metabox_out()
         $reserv_date = $rcMetas['date'];
         if("" == $reserv_date)
         {
-            $reserv_date = $post->post_date;
+            $reserv_date = date_i18n('Y-m-d H:i:s');
         }
         $reserv_date_arr = getdate(strtotime($reserv_date));
+        $current_y = date_i18n('Y');
         $reserv_content = $rcMetas['content'];
         if("" == $reserv_content)
         {
             $reserv_content = $post->post_content;
-        }        
+        }
     ?>
     <div id="rc-post-wrap" class="curtime">
         <input type="hidden" name="schroeder" id="schroeder" value="<?php echo wp_create_nonce(plugin_basename(__FILE__)); ?>"/>
@@ -88,33 +89,69 @@ function add_rucy_metabox_out()
             <input type="checkbox" name="<?php echo $rc_accept_name; ?>" value="1" <?php echo ($reserv_accept == "1") ? "checked" : ""; ?>> <?php _e('Accept reserve update content.',RC_TXT_DOMAIN) ?>
         </label>
         <div class="rc-datetime" id="timestamp">
-            <?php _e('UpdateTime',RC_TXT_DOMAIN) ?>:<b><?php echo date("Y/m/d @ H:i", strtotime($reserv_date)); ?></b>
+            <?php _e('UpdateTime',RC_TXT_DOMAIN) ?>:<b><?php echo date_i18n("Y/m/d @ H:i", strtotime($reserv_date)); ?></b>
         </div>
         <a href="#edit-reservdate" class="edit-timestamp rc-datetime-edit"><?php _e('Edit') ?></a>
         <div class="rc-datetime-wrap">
-            <input type="text" size="4" maxlength="4" name="rc_year" value="<?php echo date('Y',$reserv_date_arr[0]); ?>"><?php echo '/' ?>
+            <select name="rc_year">
+            <?php 
+            for($y = $current_y; $y <= ($current_y + 3); $y++)
+            {
+                $ySelected = ($y == date_i18n('Y',$reserv_date_arr[0])) ? "selected" : "";
+                echo '<option value="'.$y.'" '.$ySelected.'>'.$y.'</option>';
+            }
+            ?>
+            </select>
+            <?php echo '/' ?>
             <select name="rc_month">
-                <?php
-                    for($i=1;$i<=12;$i++)
-                    {
-                        $m = sprintf("%02d",$i);
-                        $selected = ($m == date('m',$reserv_date_arr[0])) ? "selected" : "";
-                        echo '<option value="'.$m.'" '.$selected.'>'.$m.'</option>';
-                    }
-                ?>
-                </select><?php echo '/' ?>
-                <input type="text" size="2" maxlength="2" name="rc_day" value="<?php echo date('d',$reserv_date_arr[0]); ?>">
-                @ <input type="text" size="2" maxlength="2" name="rc_hour" value="<?php echo date('H',$reserv_date_arr[0]); ?>">:<input type="text" size="2" maxlength="2" name="rc_minutes" value="<?php echo date('i',$reserv_date_arr[0]); ?>">
-                <a href="#edit-reservdate" class="rc-datetime-update button"><?php _e('OK',RC_TXT_DOMAIN) ?></a>
-                <a href="#edit-reservdate" class="rc-datetime-cancel"><?php _e('Cancel',RC_TXT_DOMAIN) ?></a>
+            <?php
+            for($i=1;$i<=12;$i++)
+            {
+                $m = sprintf("%02d",$i);
+                $selected = ($m == date_i18n('m',$reserv_date_arr[0])) ? "selected" : "";
+                echo '<option value="'.$m.'" '.$selected.'>'.$m.'</option>';
+            }
+            ?>
+            </select><?php echo '/' ?>
+            <select name="rc_day">
+            <?php 
+            for($d=1;$d<=31;$d++){
+                $d = sprintf("%02d",$d);
+                $dSelected = ($d == date_i18n('d',$reserv_date_arr[0])) ? "selected" : "";
+                echo '<option value="'.$d.'" '.$dSelected.'>'.$d.'</option>';
+            }
+            ?>
+            </select>    
+            @
+            <select name="rc_hour">
+            <?php 
+            for($h=0;$h<=23;$h++){
+                $h = sprintf("%02d",$h);
+                $hSelected = ($h == date_i18n('H',$reserv_date_arr[0])) ? "selected" : "";
+                echo '<option value="'.$h.'" '.$hSelected.'>'.$h.'</option>';
+            }
+            ?>
+            </select>
+            :
+            <select name="rc_minutes">
+            <?php 
+            for($min=0;$min<=59;$min++){
+                $min = sprintf("%02d",$min);
+                $minSelected = ($min == date_i18n('i',$reserv_date_arr[0])) ? "selected" : "";
+                echo '<option value="'.$min.'" '.$minSelected.'>'.$min.'</option>';
+            }
+            ?>
+            </select>
+            <a href="#edit-reservdate" class="rc-datetime-update button"><?php _e('OK',RC_TXT_DOMAIN) ?></a>
+            <a href="#edit-reservdate" class="rc-datetime-cancel"><?php _e('Cancel',RC_TXT_DOMAIN) ?></a>
         </div>
         <?php
             $dateArr = array(
-                'rc_year' => date('Y',$reserv_date_arr[0]),
-                'rc_month' => date('m',$reserv_date_arr[0]),
-                'rc_day' => date('d',$reserv_date_arr[0]),
-                'rc_hour' => date('H',$reserv_date_arr[0]),
-                'rc_minutes' => date('i',$reserv_date_arr[0])
+                'rc_year' => date_i18n('Y',$reserv_date_arr[0]),
+                'rc_month' => date_i18n('m',$reserv_date_arr[0]),
+                'rc_day' => date_i18n('d',$reserv_date_arr[0]),
+                'rc_hour' => date_i18n('H',$reserv_date_arr[0]),
+                'rc_minutes' => date_i18n('i',$reserv_date_arr[0])
             );
             foreach ($dateArr as $k => $v)
             {
@@ -146,28 +183,26 @@ function savePostmeta($post_id)
             $date = mktime($_POST['rc_hour'], $_POST['rc_minutes'], 00, $_POST['rc_month'], $_POST['rc_day'], $_POST['rc_year']);
             if($date)
             {
-                $_POST[$rcKeys['date']] = date('Y-m-d H:i:s',$date);
+                $_POST[$rcKeys['date']] = date_i18n('Y-m-d H:i:s',$date);
             } else {
                 $_POST[$rcKeys['date']] = "";
             }
-            if(!isset($_POST[$rcKeys['accept']])){
+            if(!isset($_POST[$rcKeys['accept']]) || $_POST[$rcKeys['accept']] != "1"){
                 $_POST[$rcKeys['accept']]  = "0";
-            } else if($_POST[$rcKeys['accept']] != "1"){
-                $_POST[$rcKeys['accept']] = "0";
             }
+        }
+        foreach ($rcKeys as $key => $val)
+        {
+            savePostMetaBase($post_id, $val);
         }
         if($_POST[$rcKeys['accept']] == "1")
         {
-            foreach ($rcKeys as $key => $val)
-            {
-                savePostMetaBase($post_id, $val);
-            }
             $reservDate = strtotime(get_gmt_from_date($_POST[$rcKeys['date']]) . " GMT");
             if(in_array($_POST['post_type'], $acceptPostType) || $_POST['post_type'] != 'revision')
             {
                 wp_schedule_single_event($reservDate, RC_CRON_HOOK, array($post_id));
             }
-        } else if($_POST[$rcKeys['accept']] == "0") {
+        } else if($_POST[$rcKeys['accept']] == "0" || !isset ($_POST[$rcKeys['accept']])) {
             // delete schedule
             wp_clear_scheduled_hook(RC_CRON_HOOK, array($post_id));
         }
@@ -199,7 +234,7 @@ function savePostMetaBase($post_id, $post_metakey)
 }
 
 // update post for wp-cron
-add_action('wp_reserv_content_update', 'updateReservedContent','10',1);
+add_action('rucy_update_reserved_content', 'updateReservedContent','10',1);
 function updateReservedContent($post_id)
 {
     $rcMetas = getRcMetas($post_id);
@@ -211,12 +246,12 @@ function updateReservedContent($post_id)
         );
        wp_update_post($updates,true);
     }
-    wp_clear_scheduled_hook(RC_CRON_HOOK, array($post_id));
     $dels = getRcMetas();
     foreach ($dels as $key => $del)
     {
         delete_post_meta($post_id, $del);
     }
+    wp_clear_scheduled_hook(RC_CRON_HOOK, array($post_id));
 }
 
 // add update message
@@ -231,7 +266,7 @@ function addRcMessage($messages)
         $rcMetas = getRcMetas($post_ID);
         if("1" == $rcMetas['accept'])
         {
-            $addMessageDate = date('Y/m/d @ H:i',  strtotime($rcMetas['date']));
+            $addMessageDate = date_i18n('Y/m/d @ H:i',  strtotime($rcMetas['date']));
             $str = __('registered reservation update content _RC_DATETIME_',RC_TXT_DOMAIN);
             $addMessage = '<br>' . strtr($str, array('_RC_DATETIME_' => $addMessageDate));
             // published
@@ -428,6 +463,11 @@ if(function_exists('register_uninstall_hook'))
 {
     register_uninstall_hook(__FILE__, 'goodbyeRucy');
 }
+// deactivation
+if(function_exists('register_deactivation_hook'))
+{
+    register_deactivation_hook(__FILE__, 'goodbyeRucy');
+}
 
 function goodbyeRucy()
 {
@@ -445,8 +485,21 @@ function goodbyeRucy()
 }
 
 // link to setting
-add_filter('plugin_action_links_' . plugin_basename(__FILE__), 'helloRucy');
-function helloRucy($links){
+add_filter('plugin_action_links_' . plugin_basename(__FILE__), 'hiRucy');
+function hiRucy($links)
+{
     $links[] = '<a href="' . get_admin_url(null, 'options-general.php?page=rucy') . '">' . __('Settings') . '</a>';
     return $links;
+}
+
+// activate plugin action
+register_activation_hook(plugin_basename(__FILE__), 'helloRucy');
+function helloRucy()
+{
+    $rc_setting = get_option(RC_SETTING_OPTION_KEY);
+    if(!$rc_setting)
+    {
+        $basicPostTypes = RC_POSTTYPE_DEFAULT;
+        update_option(RC_SETTING_OPTION_KEY, $basicPostTypes);
+    }
 }
