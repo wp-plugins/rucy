@@ -4,7 +4,7 @@
 .rc-datetime-wrap{
     display: none;
     margin: 10px 0;
-    height: 21px;
+    line-height: 28px;
 }
 .rc-datetime-wrap select{
     line-height: 14px;
@@ -18,4 +18,18 @@
 }
 .rc-datetime{
     display: inline-block;
+}
+
+.rc_feature_image {
+    max-width: 100%;
+    width: 50%;
+    height: auto;
+}
+.rc_remove_feature_image {
+    display: none;
+}
+.rc-feature-image-preview img {
+    max-width: 100%;
+    width: 50%;
+    height: auto;
 }
